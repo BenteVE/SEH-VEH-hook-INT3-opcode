@@ -1,39 +1,58 @@
-# SEH/VEH hooking using Debug Registers
+# Structered/Vectored Exception Handler hook
 
-A Structured or Vectored Exception Handler (SEH/VEH) hook
+A demo of a Structured or Vectored Exception Handler (SEH/VEH) hook using INT3 opcode to trigger the exception.
 
-## Exception Handling
+## Structured/Vectored Exception Handler
 
-### Structured Exception Handler
+Structured Exception Handling (SEH) is a mechanism for handling both hardware and software exceptions.
+This enables applications to have complete control over the handling of exceptions and provides support for debuggers.
+Vectored Exception Handling is an extension to Structured Exception Handling.
 
-Structured Exception Handlers (SEHs) in Windows are stored as a linked list.
-When an exception is raised, this list is traversed until a handler for the exception is found.
-If one is found then the handler gains execution of the program and handles the exception.
-If one is not found then the application goes into an undefined state and may crash depending on the type of exception.
+When an exception is raised, a list of ExceptionFilters will be traversed until a handler for that particular exception is found.
+Once the ExceptionFilter is finished handling the exception, it can return control to the rest of the application.
 
-### Vectored Exception Handler
+## SEH/VEH hook
 
-## Installing the hook
+To install a SEH hook, we will first inject the DLL in this project using a [DLL injector](https://github.com/BenteVE/DLL-Injector).
+This DLL contains a hook function, an ExceptionFilter and an installation function.
 
-### Creating an exception
+To install the hook, we can use `SetUnhandledExceptionFilter` for an SEH hook or `SetVectoredExceptionHandler` for a VEH hook.
+In both cases, the ExceptionFilter can be the same.
 
-- STATUS_GUARD_PAGE_VIOLATION
-- STATUS_ACCESS_VIOLATION (with NO_ACCESS flag)
-- EXCEPTION BREAKPOINT (INT3 opcode)
-- setting Dr registers in PCONTEXT
+Inside the ExceptionFilter, we can change instruction pointer in the `ContextRecord` to point to our hook function.
+Once the ExceptionFilter is done, this will cause the program continue from that function.
 
-### Recovering from the exception
+![Demo](doc/SEH-hook.png)
 
-When we return to the place of the exception after executing our hook, we have to make sure the exception is not triggered again.
+Now we only need a way to trigger the exception when the target function is executed.
+In this implementation we overwrite the first byte of the target function implementation with the INT3 opcode (0xCC).
+When we now call the original function from inside the hook function, the exception would be triggered again and an infinite loop would start.
+To avoid this, we will simply overwrite the restore the original byte at the start of the hook, and overwrite it again at the end.
 
-- SINGLE STEP EXCEPTION
-- creating a trampoline with assembly instructions
+The triggering and recovering from the exceptions can be accomplished in multiple different ways.
+For some alternative implementations of a SEH/VEH hook, you can view:
 
-### Installing the ExceptionFilter
+- [SEH/VEH hook triggering exception with Debug Registers and recovering with an assembly trampoline](https://github.com/BenteVE/SEH-VEH-hook-Debug-Registers-Breakpoint)
+- [SEH/VEH hook using Page Guard exceptions](https://github.com/BenteVE/SEH-VEH-hook-Page-Guard-Exception)
 
-- by using SetUnhandledExceptionFilter/SetVectoredExceptionHandler
-- by changing pointers in Thead Information Block (TIB) with assembly
+## Demo
 
-## Example
+In this particular implementation, we will hook the `MessageBoxW` function in the `user32.dll`.
+The hook function will simply call the original function with a modified argument to replace the title.
 
-In this example we will use the Dr registers in combination with an assembly trampoline to trigger and recover from the exception, and we will use SetUnhandledExceptionFilter to install the handler.
+1. Clone the repository:
+
+    ```bash
+    git clone https://github.com/BenteVE/SEH-VEH-hook-INT3-opcode.git
+    ```
+
+2. Build the DLL for the desired architecture (x86 or x64) using Visual Studio.
+   The architecture of the DLL should match the architecture of the target program and the used DLL injector.
+
+3. Use a DLL injector to inject the built DLL into the target process.
+   The injector used here is available in another [repository](https://github.com/BenteVE/DLL-Injector) with a detailed explanation.
+
+4. Trigger an action that uses a `MessageBox` in the target program to verify that the hook worked.
+   For Notepad++, attempting to close an unsaved file does this:
+
+    ![Demo](doc/demo.gif)
