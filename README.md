@@ -19,8 +19,8 @@ This DLL contains a hook function, an ExceptionFilter and an installation functi
 To install the hook, we can use `SetUnhandledExceptionFilter` for an SEH hook or `SetVectoredExceptionHandler` for a VEH hook.
 In both cases, the ExceptionFilter can be the same.
 
-Inside the ExceptionFilter, we can change instruction pointer in the `ContextRecord` to point to our hook function.
-Once the ExceptionFilter is done, this will cause the program continue from that function.
+Inside the ExceptionFilter, we can change the instruction pointer in the `ContextRecord` to point to our hook function.
+Once the ExceptionFilter is done, this will cause the program to continue from that function.
 
 ![Demo](doc/SEH-hook.png)
 
